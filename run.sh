@@ -1,3 +1,3 @@
 #!/bin/sh
 
-python unpack_texture.py
+python unpack_texture.py ./ plist

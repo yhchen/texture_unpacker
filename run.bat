@@ -1,4 +1,4 @@
 @echo off
-python unpack_texture.py
+python unpack_texture.py ./ plist
 
 pause

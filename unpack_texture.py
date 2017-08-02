@@ -25,10 +25,18 @@ def tree_to_dict(tree):
                 d[item.text] = tree_to_dict(tree[index + 1])
     return d
 
+def get_data_extension_by_format(format):
+    if format == 'json':
+        return '.json'
+    else: return '.plist'
+
+def get_data_filename(filename, format):
+    data_filename = filename + get_data_extension_by_format(format)
+    return data_filename
 
 def frames_from_data(filename, format):
+    data_filename = get_data_filename(filename, format)
     if format == 'plist':
-        data_filename = filename + '.plist'
         root = ElementTree.fromstring(open(data_filename, 'r').read())
         plist_dict = tree_to_dict(root[0])
         to_list = lambda x: x.replace('{', '').replace('}', '').split(',')
@@ -59,9 +67,7 @@ def frames_from_data(filename, format):
                 int((real_sizelist[1] + height) / 2 + offset_y)
             )
         return frames
-
     elif format == 'json':
-        data_filename = filename + '.json'
         json_data = open(data_filename)
         data = json.load(json_data)
         frames = {}
@@ -95,7 +101,6 @@ def frames_from_data(filename, format):
         json_data.close()
         return frames.items()
     elif format == 'cocos':
-        data_filename = filename + '.plist'
         pl = plistlib.readPlist(data_filename)
         data = pl['frames'].items()
         frames = {}
@@ -158,32 +163,28 @@ def gen_png_from_data(filename, format):
         result_image.save(outfile)
         print(outfile, "generated")
 
-def find_all_file_with_extensions(filepath, ext, handler):
+def find_all_file_with_extensions(filepath, ext):
     #遍历filepath下所有文件，包括子目录
     files = os.listdir(filepath)
+    ret = []
     for fi in files:
-        fi_d = os.path.join(filepath,fi)            
+        fi_d = os.path.join(filepath,fi)
         if os.path.isdir(fi_d):
-            find_all_file_with_extensions(fi_d, ext, handler)                  
+            tmp = find_all_file_with_extensions(fi_d, ext)
+            for v in tmp:
+                ret.append(v)
         else:
             file_ext = os.path.splitext(fi_d)
             if file_ext[1] == ext:
-                try:
-                    print('handle file:[' + fi_d + ']')
-                    handler(file_ext[0])
-                except Exception as ex:
-                    print('got exception:[');
-                    print(ex.__str__()+']')
+                ret.append(fi_d)
             else:
                 print('skip file [' + fi_d + ']');
+    return ret
 
-def unpack_file(filename, format):
-    format = 'plist'
-    ext = '.plist'
+def unpack_file(filename, format = 'plist'):
     if format == 'plist':
         print('.plist data format passed')
     elif format == 'json':
-        ext = '.json'
         print('.json data format passed')
     elif format == 'cocos':
         print('.cocos data format passed')
@@ -191,22 +192,23 @@ def unpack_file(filename, format):
         print('Wrong data format passed '' + format + ''!')
         exit(1)
 
-    data_filename = filename + ext
+    data_filename = get_data_filename(filename, format)
     png_filename = filename + '.png'
     if os.path.exists(data_filename) and os.path.exists(png_filename):
         gen_png_from_data(filename, format)
     else:
         print('Make sure you have both ' + data_filename + ' and ' + png_filename + ' files in the same directory')
 
-def unpack_cocos_file(filename):
-    unpack_file(filename, 'cocos')
-
-def unpack_plist_file(filename):
-    unpack_file(filename, 'plist')
+def print_usage():
+    print(sys.argv[0] + '<file name without extension or folder path> <format (plist|cocos|json)>')
 
 if __name__ == '__main__':
-    if sys.argv.__len__() >= 1:
-        find_all_file_with_extensions('./', '.plist', unpack_plist_file)
+    if sys.argv.__len__() <= 2:
+        print_usage()
+        exit(-1)
+    if os.path.isdir(sys.argv[1]):
+        filelst = find_all_file_with_extensions(sys.argv[1], get_data_extension_by_format(sys.argv[2]))
+        for file in filelst:
+            unpack_file(os.path.splitext(file)[0], sys.argv[2])
     else:
-        filename = sys.argv[1]
-        unpack_plist_file(filename)
+        unpack_file(sys.argv[1], sys.argv[2])
